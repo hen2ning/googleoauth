@@ -1,0 +1,141 @@
+<?php
+
+define('GOOGLE_API_DOWNLOAD_URI', 'http://google-api-php-client.googlecode.com/files/google-api-php-client-0.6.0.tar.gz');
+
+/**
+ * Implements hook_libraries_info().
+ */
+function googleoauth_libraries_info() {
+    $libraries['google-api'] = array(
+        'name' => 'Google API',
+        'vendor url' => 'http://code.google.com/p/google-api-php-client/downloads/list',
+        'download url' => GOOGLE_API_DOWNLOAD_URI,
+    );
+    return $libraries;
+}
+
+/**
+ * Implements hook_menu().
+ */
+function googleoauth_menu() {
+    $items['googleoauth-callback'] = array(
+        'title' => 'Callback page',
+        'page callback' => 'googleoauth_callback',
+        'access callback' => TRUE,
+        'type' => MENU_CALLBACK,
+        'file' => 'callback.pages.inc',
+    );
+    $items['googleoauth-callback/final'] = array(
+        'title' => 'Callback page',
+        'page callback' => 'googleoauth_callback',
+        'access callback' => TRUE,
+        'type' => MENU_CALLBACK,
+        'file' => 'callback.pages.inc',
+    );
+    $items['admin/settings/googleoauth'] = array(
+        'title' => 'Google Connect Settings',
+        'description' => 'Settings for Google Connect API.',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('googleoauth_settings'),
+        'access arguments' => array('administer site configuration'),
+        'file' => 'settings.pages.inc',
+    );
+    return $items;
+}
+
+function googleoauth_getclient() {
+    $path = libraries_get_path('google-api') . '/src/';
+    require_once $path . 'Google_Client.php';
+    require_once $path . 'contrib/Google_Oauth2Service.php';
+    $client = new Google_Client();
+    $client->setApplicationName(variable_get('googleoauth_application_name', ''));
+// Visit https://code.google.com/apis/console?api=plus to generate your
+// oauth2_client_id, oauth2_client_secret, and to register your oauth2_redirect_uri.
+    $client->setClientId(variable_get('googleoauth_oauth2_client_id', ''));
+    $client->setClientSecret(variable_get('googleoauth_oauth2_client_secret', ''));
+    $client->setRedirectUri('http://' . $_SERVER['HTTP_HOST'] . '/googleoauth-callback');
+    $client->setDeveloperKey(variable_get('googleoauth_developer_key', ''));
+    return $client;
+}
+
+/**
+ * Google Oauth2 Logout
+ */
+function googleoauth_logout($client = NULL) {
+    if (!$client)
+        $client = googleoauth_getclient();
+    if (isset($_SESSION['token']))
+        unset($_SESSION['token']);
+    $client->revokeToken();
+}
+
+/**
+ * Implements hook_user_logout().
+ * @param type $account
+ */
+function googleoauth_user_logout($account) {
+    googleoauth_logout();
+}
+
+/**
+ * Implement hook_block_info().
+ */
+function googleoauth_block_info() {
+    $blocks['googleoauth_userblock'] = array(
+        'info' => t('Google Oauth user block'),
+        'cache' => DRUPAL_CACHE_PER_USER,
+    );
+    return $blocks;
+}
+
+/**
+ * Implement hook_block_view().
+ */
+function googleoauth_block_view($delta = '') {
+    $block = array();
+    switch ($delta) {
+        case 'googleoauth_userblock':
+            $block['subject'] = t('User block');
+            $block['content'] = array(
+                '#markup' => _googleoauth_userblock(),
+            );
+            break;
+    }
+    return $block;
+}
+
+function _googleoauth_userblock() {
+    global $user;
+
+    if (isset($_GET['logout']))
+        googleoauth_logout();
+
+    $output = '';
+    $client = googleoauth_getclient();
+    $oauth2 = new Google_Oauth2Service($client);
+
+    if (isset($_SESSION['token'])) {
+        $client->setAccessToken($_SESSION['token']);
+    }
+
+    if ($client->getAccessToken()) {
+        $account = $oauth2->userinfo->get();
+        $_SESSION['token'] = $client->getAccessToken();
+    } else {
+        $authUrl = googleoauth_authlink($client);
+    }
+    if (isset($authUrl)) {
+        $output .= "<a class='login' href='$authUrl'>" . variable_get('googleoauth_title_link', t('Google Plus Login')) . "</a>";
+    } else {
+        $user = user_load_by_mail($account['email']);
+        $output .= $account['email'];
+        $output .= " <a class='logout' href='?logout'>Logout</a>";
+    }
+    return $output;
+}
+
+function googleoauth_authlink($client = NULL) {
+    if (!$client)
+        $client = googleoauth_getclient();
+    return $client->createAuthUrl();
+}
