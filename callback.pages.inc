@@ -1,5 +1,6 @@
 <?php
 
+
 /**
  * Google OAuth callback page
  * @global type $user
@@ -18,7 +19,6 @@ function googleoauth_callback() {
             $client->setAccessToken($_SESSION['token']);
         }
         if ($client->getAccessToken()) {
-            $account = $oauth2->userinfo->get();
             // The access token may have been updated lazily.
             $_SESSION['token'] = $client->getAccessToken();
         }
@@ -33,7 +33,6 @@ function googleoauth_callback() {
             $client->setAccessToken($_SESSION['token']);
         }
         if ($client->getAccessToken()) {
-            $account = $oauth2->userinfo->get();
             // The access token may have been updated lazily.
             $_SESSION['token'] = $client->getAccessToken();
             $user = $account;
@@ -44,10 +43,10 @@ function googleoauth_callback() {
         $client->setAccessToken($_SESSION['token']);
     }
     if ($client->getAccessToken()) {
-        $account = $oauth2->userinfo->get();
+        $gaccount = $oauth2->userinfo->get();
         // The access token may have been updated lazily.
         $_SESSION['token'] = $client->getAccessToken();
-        $user = user_load_by_mail($account['email']);
+        $user = user_load_by_mail($gaccount['email']);
         drupal_goto('user');
     } else {
         googleoauth_logout($client);
@@ -75,15 +74,15 @@ function googleoauth_register($client, $gaccount) {
                 if ($is_domains_blocked) {
                     if ((in_array($mailDomain, $allowed_domains))) {
                         googleoauth_logout($client);
-                        drupal_set_message(t('User with email domain @domain is restrictred to use this site.'
-                                        , array('@domain' => $mailDomain)), 'error');
+                        drupal_set_message(t('User with email domain @!domain is restrictred to use this site.'
+                                        , array('!omain' => $mailDomain)), 'error');
                         drupal_goto();
                     }
                 } else {
                     if (!(in_array($mailDomain, $allowed_domains))) {
                         googleoauth_logout($client);
-                        drupal_set_message(t('User with email domain @domain is restrictred to use this site.'
-                                        , array('@domain' => $mailDomain)), 'error');
+                        drupal_set_message(t('User with email domain @!domain is restrictred to use this site.'
+                                        , array('!domain' => $mailDomain)), 'error');
                         drupal_goto();
                     }
                 }

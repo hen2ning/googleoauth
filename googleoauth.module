@@ -32,7 +32,7 @@ function googleoauth_menu() {
         'type' => MENU_CALLBACK,
         'file' => 'callback.pages.inc',
     );
-    $items['admin/settings/googleoauth'] = array(
+    $items['admin/config/googleoauth'] = array(
         'title' => 'Google Connect Settings',
         'description' => 'Settings for Google Connect API.',
         'page callback' => 'drupal_get_form',
@@ -138,4 +138,15 @@ function googleoauth_authlink($client = NULL) {
     if (!$client)
         $client = googleoauth_getclient();
     return $client->createAuthUrl();
+}
+
+function googleoauth_form_alter(&$form, &$form_state, $form_id) {
+    if ($form_id == 'user_login' && variable_get('googleoauth_onlygoogleauth', 0)) {
+        unset($form['pass']);
+        unset($form['name']);
+        unset($form['actions']);
+    }
+    if ($form_id == 'user_profile_form' && variable_get('googleoauth_hidden_pass', 0)) {
+        unset($form['account']['pass']);
+    }
 }
